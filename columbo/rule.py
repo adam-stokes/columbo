@@ -4,6 +4,7 @@
 import re
 import tempfile
 import uuid
+import json
 from pathlib import Path
 
 import magic
@@ -75,9 +76,17 @@ class RuleProcessor:
                 self._process(line)
 
         if self.results:
-            outfile = self.output / self.file_p.name
-            outfile.write_text("\n".join(self.results))
-            log.info(f"Capture stored at {outfile}")
+            identifier = str(uuid.uuid4()).split("-")[0]
+            outfile_json = self.output / f"{self.file_p.name}-{identifier}.json"
+            outfile_txt = self.output / f"{self.file_p.name}-{identifier}-result.txt"
+            # XXX: cleanup with structured class
+            file_map = {
+                "filename": str(self.file_p),
+                "results": "\n".join(self.results),
+            }
+            outfile_json.write_text(json.dumps(file_map))
+            outfile_txt.write_text("\n".join(self.results))
+            log.info(f"Capture stored at {outfile_json} and {outfile_txt}")
 
 
 class RuleWorker:

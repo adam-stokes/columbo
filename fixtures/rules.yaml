@@ -2,3 +2,7 @@
   description: python tracebacks
   start_marker: "^Traceback.*"
   end_marker: "^.*Error|InvalidRequest:"
+- id: xen-versions
+  description: grab xen versions
+  start_marker: "Xen version.*$"
+  end_marker: "Xen Platform.*$"
