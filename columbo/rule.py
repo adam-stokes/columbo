@@ -1,10 +1,10 @@
 """ Rule parser
 
 """
+import json
 import re
 import tempfile
 import uuid
-import json
 from pathlib import Path
 
 import magic
