@@ -1,0 +1,4 @@
+- id: python-tb-exception
+  description: python tracebacks
+  start_marker: "^Traceback.*"
+  end_marker: "^.*Error|InvalidRequest:"

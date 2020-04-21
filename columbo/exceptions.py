@@ -1,0 +1,2 @@
+class ColumboException(Exception):
+    pass
