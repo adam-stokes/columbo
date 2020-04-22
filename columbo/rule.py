@@ -3,6 +3,7 @@
 """
 import json
 import re
+import tarfile
 import tempfile
 import uuid
 from pathlib import Path
@@ -90,20 +91,30 @@ class RuleProcessor:
 
 
 class RuleWorker:
-    def __init__(self, rules, tarball, output):
+    def __init__(self, rules, output):
         self.rules = rules
-        self.tarball = tarball
         self.workdir = tempfile.mkdtemp()
         self.output = output
         self.files_to_process = []
 
-    def extract(self):
+    def extract(self, tarball):
         """ Extracts tarball into tmpdirectory
         """
-        log.info(f"Extracting {self.tarball}")
-        run.cmd_ok(
-            f"cd {self.workdir} && tar xvf {str(self.tarball)} >/dev/null", shell=True
-        )
+        log.info(f"Extracting {tarball}")
+        tar = tarfile.open(str(tarball), "r")
+        for item in tar:
+            log.debug(f"xx {item}")
+            try:
+                tar.extract(item, str(self.workdir))
+                if (
+                    item.name.find(".tar.gz") != -1
+                    or item.name.find(".tar.xz") != -1
+                    or item.name.find(".tgz") != -1
+                ):
+                    self.extract(f"{self.workdir}/{item.name}")
+            except PermissionError as e:
+                log.debug(f"xx unable to read {self.workdir}/{item.name}")
+                continue
 
     def cleanup(self):
         log.info(f"Cleaning up {self.workdir}")

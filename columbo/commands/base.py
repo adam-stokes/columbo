@@ -37,10 +37,8 @@ def cli(rules, output_dir, debug, tarball):
         log.error(f"Unable to read: {tarball_p}")
         sys.exit(1)
 
-    worker = RuleWorker(
-        rules=RuleLoader(rule_p).parse(), tarball=tarball_p, output=output_p
-    )
-    worker.extract()
+    worker = RuleWorker(rules=RuleLoader(rule_p).parse(), output=output_p)
+    worker.extract(tarball_p)
     worker.build_file_list()
     worker.process()
     worker.cleanup()
