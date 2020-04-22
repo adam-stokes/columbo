@@ -6,7 +6,7 @@ columbo - got them clues
 
 ```
 > pip install columbo
-> columbo --rules parser.yaml --output-dir ~/tmp/output <tarball>
+> columbo --rules columbo.yaml --output-dir ~/tmp/output <tarball>
 ```
 
 ## Description

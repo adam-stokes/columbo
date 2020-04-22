@@ -13,6 +13,7 @@ from ..rule import RuleLoader, RuleWorker
 @click.option(
     "--rules",
     metavar="<RULES>",
+    default="columbo.yaml",
     required=True,
     help="Rules specification containing regex parsing and messaging",
 )
@@ -41,6 +42,7 @@ def cli(rules, output_dir, debug, tarball):
     worker.extract(tarball_p)
     worker.build_file_list()
     worker.process()
+    worker.report()
     worker.cleanup()
 
 

@@ -13,6 +13,7 @@ import yaml
 from pathos.threading import ThreadPool
 
 from . import log, run
+from .report import Reporter
 
 
 class RuleSpec:
@@ -23,6 +24,14 @@ class RuleSpec:
     @property
     def id(self):
         return f"{self.stanza['id']}-{self.uuid}"
+
+    @property
+    def name(self):
+        return self.stanza["id"]
+
+    @property
+    def friendly_name(self):
+        return self.stanza["id"].replace("-", " ")
 
     @property
     def description(self):
@@ -57,19 +66,20 @@ class RuleProcessor:
         self.output = output
         self.is_matching = False
         self.results = []
+        self.result_map = {}
 
     def _process(self, line):
         if not self.is_matching and self.rule.start_marker.search(line):
             log.info(f"[match] START: {self.file_p}")
             self.is_matching = True
-            self.results.append(line)
+            self.results.append(line.strip())
         elif self.is_matching and self.rule.end_marker.search(line):
             self.is_matching = False
-            self.results.append(line)
+            self.results.append(line.strip())
             log.info(f"[match] END: {self.file_p}")
         elif self.is_matching:
-            log.info(f"[match] CAPTURE: {line.strip()}")
-            self.results.append(line)
+            log.debug(f"[match] CAPTURE: {line.strip()}")
+            self.results.append(line.strip())
 
     def analyze(self):
         with open(str(self.file_p)) as f:
@@ -81,13 +91,19 @@ class RuleProcessor:
             outfile_json = self.output / f"{self.file_p.name}-{identifier}.json"
             outfile_txt = self.output / f"{self.file_p.name}-{identifier}-result.txt"
             # XXX: cleanup with structured class
-            file_map = {
+            self.result_map = {
+                "rule": self.rule.name,
+                "name": self.rule.friendly_name,
                 "filename": str(self.file_p),
                 "results": "\n".join(self.results),
             }
-            outfile_json.write_text(json.dumps(file_map))
+            outfile_json.write_text(json.dumps(self.result_map))
             outfile_txt.write_text("\n".join(self.results))
             log.info(f"Capture stored at {outfile_json} and {outfile_txt}")
+
+    @property
+    def result(self):
+        return self.result_map
 
 
 class RuleWorker:
@@ -131,7 +147,7 @@ class RuleWorker:
                 and magic.from_file(str(_path), mime=True) == "text/plain"
             ):
                 for rule in self.rules:
-                    log.info(f":: adding process rule: {rule} to {_path}")
+                    log.debug(f":: adding process rule: {rule} to {_path}")
                     self.files_to_process.append(
                         RuleProcessor(rule, _path, self.output)
                     )
@@ -145,6 +161,45 @@ class RuleWorker:
         pool = ThreadPool()
         pool.map(self.__process, self.files_to_process)
 
-    @property
-    def process_count(self):
-        return len(self.files_to_process)
+    def report(self):
+        results_list = [
+            item.result_map for item in self.files_to_process if item.result_map
+        ]
+        report_p = self.output / "columbo-report.json"
+        report_p.write_text(json.dumps(results_list))
+        self.report_html()
+        self.report_text()
+
+    def report_html(self):
+        log.info("Generating HTML Report")
+        report_p = self.output / "columbo-report.html"
+        r = Reporter()
+        output = [r.header, "<h2>Columbo Report</h2><hr/>"]
+        for item in self.files_to_process:
+            if not item.result_map:
+                continue
+
+            output.append("<div class='row'>")
+            output.append("<div class='col'>")
+            output.append(f"<h3>{item.result_map['name']}</h3>")
+            output.append(f"<p><strong>{item.result_map['filename']}</strong></p>")
+            output.append(f"<pre>{item.result_map['results']}</pre>")
+            output.append("</div>")
+            output.append("</div>")
+        output.append(r.footer)
+        report_p.write_text("\n".join(output))
+
+    def report_text(self):
+        log.info("Generating TXT Report")
+        report_p = self.output / "columbo-report.txt"
+        r = Reporter()
+        output = ["Columbo Report", "=" * 79]
+        for item in self.files_to_process:
+            if not item.result_map:
+                continue
+            output.append(item.result_map["name"])
+            output.append(item.result_map["filename"])
+            output.append(item.result_map["results"])
+            output.append("-" * 79)
+            output.append("")
+        report_p.write_text("\n".join(output))
