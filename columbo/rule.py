@@ -16,10 +16,69 @@ from . import log, run
 from .report import Reporter
 
 
+class RuleException(Exception):
+    """ Exception class
+    """
+
+
+class RuleMatchLine:
+    def __init__(self, stanza):
+        self.stanza = stanza
+
+    @property
+    def _line_match(self):
+        return re.compile(self.stanza["line_match"])
+
+    def collect(self, file_p, line):
+
+        if self._line_match.search(line):
+            log.info(f"[match_line]: {file_p}: {line}")
+            return line.strip()
+
+
+class RuleMatchStartStopMarker:
+    def __init__(self, stanza):
+        self.stanza = stanza
+        self.is_matching = False
+
+    @property
+    def _start_marker(self):
+        return re.compile(self.stanza["start_marker"])
+
+    @property
+    def _end_marker(self):
+        return re.compile(self.stanza["end_marker"])
+
+    def collect(self, file_p, line):
+        if not self.is_matching and self._start_marker.search(line):
+            log.info(f"[match] START: {file_p}")
+            self.is_matching = True
+            return line.strip()
+        if self.is_matching and self._end_marker.search(line):
+            self.is_matching = False
+            log.info(f"[match] END: {file_p}")
+            return line.strip()
+        if self.is_matching:
+            log.debug(f"[match] CAPTURE: {line.strip()}")
+            return line.strip()
+
+
 class RuleSpec:
     def __init__(self, stanza):
         self.stanza = stanza
         self.uuid = str(uuid.uuid4())
+        self.matcher = self._set_matcher()
+
+    def _set_matcher(self):
+        collect_keys = ["start_marker", "end_marker", "line_match"]
+        if all(elem in collect_keys for elem in self.stanza.keys()):
+            raise RuleException(
+                "You can not have 'start_marker' 'end_marker' and 'line_match' in the same rule spec, must be either 'start_marker' 'end_marker' or 'line_match'"
+            )
+        if "start_marker" and "end_marker" in self.stanza:
+            return RuleMatchStartStopMarker(self.stanza)
+        if "line_match" in self.stanza:
+            return RuleMatchLine(self.stanza)
 
     @property
     def id(self):
@@ -37,13 +96,10 @@ class RuleSpec:
     def description(self):
         return self.stanza["description"]
 
-    @property
-    def start_marker(self):
-        return re.compile(self.stanza["start_marker"])
-
-    @property
-    def end_marker(self):
-        return re.compile(self.stanza["end_marker"])
+    def collect(self, file_p, line):
+        """ Performs collection based on type of matching
+        """
+        return self.matcher.collect(file_p, line)
 
     def __str__(self):
         return f"<Rule: {self.id}>"
@@ -69,17 +125,10 @@ class RuleProcessor:
         self.result_map = {}
 
     def _process(self, line):
-        if not self.is_matching and self.rule.start_marker.search(line):
-            log.info(f"[match] START: {self.file_p}")
-            self.is_matching = True
-            self.results.append(line.strip())
-        elif self.is_matching and self.rule.end_marker.search(line):
-            self.is_matching = False
-            self.results.append(line.strip())
-            log.info(f"[match] END: {self.file_p}")
-        elif self.is_matching:
-            log.debug(f"[match] CAPTURE: {line.strip()}")
-            self.results.append(line.strip())
+        output = self.rule.collect(self.file_p, line)
+        if output:
+            log.info(output)
+            self.results.append(output)
 
     def analyze(self):
         with open(str(self.file_p)) as f:
@@ -139,7 +188,7 @@ class RuleWorker:
     def build_file_list(self):
         """ Generates a list of searchable files to process
         """
-        log.info(f"Generating files to process")
+        log.info("Generating files to process")
         _paths = Path(self.workdir).glob("**/*")
         for _path in _paths:
             if (

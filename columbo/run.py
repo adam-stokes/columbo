@@ -1,3 +1,4 @@
+# pylint: disable=subprocess-run-check
 import os
 import shlex
 import subprocess
