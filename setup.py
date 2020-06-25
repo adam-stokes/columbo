@@ -7,7 +7,7 @@ README = README.read_text(encoding="utf8")
 
 setuptools.setup(
     name="columbo",
-    version="0.0.5",
+    version="0.0.6",
     author="Adam Stokes",
     author_email="adam.stokes@ubuntu.com",
     description="columbo, he smart yo",
