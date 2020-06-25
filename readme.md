@@ -28,6 +28,16 @@ An example rules file looks like:
   end_marker: "^.*Error|InvalidRequest:"
 ```
 
+You can also match by line:
+
+```yaml
+
+- id: subprocess-exit-status
+  description: pulls lines with an exit status in the text
+  line_match: "exit status 1"
+```
+
+
 ## AsciiCast
 
 [![asciicast](https://asciinema.org/a/MUs0GdCUxsN89C3fDlRUEHfKI.svg)](https://asciinema.org/a/MUs0GdCUxsN89C3fDlRUEHfKI)
